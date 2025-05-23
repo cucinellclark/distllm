@@ -62,13 +62,13 @@ class RemoteEmbedding:
         self.model = config['model']
         self.embedding_size = config['embedding_size']
         
-    def get_embeddings(self, batch_encoding: BatchEncoding) -> torch.Tensor:
+    def query_sequence(self, query: str | list[str]) -> torch.Tensor:
         """Get embeddings by sending to remote server.
         
         Parameters
         ----------
-        batch_encoding : BatchEncoding
-            The batch encoding of the sequence.
+        query : str | list[str]
+            A single query string or list of query strings to embed
             
         Returns
         -------
@@ -76,12 +76,10 @@ class RemoteEmbedding:
             The embeddings of the sequence
             (shape: [num_sequences, sequence_length, embedding_size])
         """
-        # Convert to dict for JSON serialization
-        batch_dict = {
-            key: value.tolist() if hasattr(value, 'tolist') else value
-            for key, value in batch_encoding.items()
-        }
-        
+        # Convert single string to list
+        if isinstance(query, str):
+            query = [query]
+            
         url = f'http://{self.server}:{self.port}/v1/embeddings'
         headers = {
             'Content-Type': 'application/json',
@@ -89,7 +87,7 @@ class RemoteEmbedding:
         }
         payload = {
             'model': self.model,
-            'input': batch_dict,
+            'input': query,
         }
         
         response = requests.post(
