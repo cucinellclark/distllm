@@ -62,7 +62,7 @@ class RemoteEmbedding:
         self.model = config['model']
         self.embedding_size = config['embedding_size']
         
-    def query_sequence(self, query: str | list[str]) -> torch.Tensor:
+    def get_embeddings(self, query: str | list[str]) -> torch.Tensor:
         """Get embeddings by sending to remote server.
         
         Parameters
