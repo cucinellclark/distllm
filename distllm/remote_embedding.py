@@ -151,8 +151,62 @@ def process_embeddings(
         dataloader = dataset.get_dataloader(input_path)
 
     # Compute the embeddings
+    # with Timer('computed-embeddings', input_path):
+    #    result = embedder.embed(dataloader, pooler)
+
+    # Make a direct VLLM embedding request
     with Timer('computed-embeddings', input_path):
-        result = embedder.embed(dataloader, pooler)
+        # Extract texts from dataloader
+        texts = []
+        for batch in dataloader:
+            texts.extend(batch["text"])
+        
+        # Direct VLLM request
+        url = "http://140.221.79.23:9998/v1/embeddings"  # Adjust host/port as needed
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer AskClark"  # Replace with actual API key
+        }
+        
+        payload = {
+            "model": "Salesforce/SFR-Embedding-Mistral",  # Replace with actual model name
+            "input": texts,
+            "encoding_format": "float"
+        }
+        
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            
+            # Print the response structure for debugging
+            print(f"Response keys: {response_data.keys()}")
+            
+            # Extract embeddings from response
+            all_embeddings = []
+            for item in response_data.get('data', []):
+                embedding = item.get('embedding', [])
+                all_embeddings.append(embedding)
+            
+            # Convert to tensor
+            embeddings_tensor = torch.tensor(all_embeddings)
+            
+            # Create result in expected format
+            result = {
+                'embeddings': embeddings_tensor,
+                'metadata': {'texts': texts}
+            }
+            
+            # Log embedding shape
+            print(f"Generated embeddings shape: {embeddings_tensor.shape}")
+        else:
+            error_msg = f"VLLM API Error: {response.status_code}, {response.text}"
+            print(error_msg)
+            raise ValueError(error_msg)
 
     # Create the output directory for the embedding dataset
     dataset_dir = output_dir / f'{uuid4()}'
