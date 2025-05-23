@@ -29,6 +29,7 @@ from distllm.embed import Pooler
 from distllm.embed import PoolerConfigs
 from distllm.utils import BaseConfig
 from distllm.utils import batch_data
+from distllm.remote_embedding import RemoteEmbedding
 
 
 def quantize_dataset(dataset_path: Path, precision: str) -> np.ndarray:
@@ -746,6 +747,7 @@ class Retriever:
         query_embedding: np.ndarray | None = None,
         top_k: int = 1,
         score_threshold: float = 0.0,
+        remote_retriever: bool = False
     ) -> tuple[BatchedSearchResults, np.ndarray]:
         """Search for text similar to the queries.
 
@@ -760,6 +762,8 @@ class Retriever:
         score_threshold : float
             The score threshold to use for filtering out results,
             by default we keep everything 0.0.
+        remote_retriever : bool
+            Whether to use remote embedding for the query, by default False.
 
         Returns
         -------
@@ -786,7 +790,41 @@ class Retriever:
         # Embed the queries
         if query_embedding is None:
             assert query is not None
-            query_embedding = self.get_pooled_embeddings(query)
+            if remote_retriever:
+                # Convert query to list if it's a string
+                if isinstance(query, str):
+                    query_list = [query]
+                else:
+                    query_list = query
+                
+                import pdb; pdb.set_trace()
+                # Get configuration from encoder_config
+                config = self.encoder.config
+                
+                # Create a RemoteEmbedding instance
+                remote_client = RemoteEmbedding(config)
+                
+                # Tokenize the query
+                batch_encoding = remote_client.tokenizer(
+                    query_list,
+                    padding=True,
+                    truncation=True,
+                    return_tensors='pt',
+                )
+                
+                # Get embeddings from remote service
+                embeddings = remote_client.get_embeddings(batch_encoding)
+                
+                # Pool the embeddings using the pooler
+                pooled_embeddings = self.pooler.pool(embeddings, batch_encoding.attention_mask)
+                
+                # Convert to numpy for FAISS
+                query_embedding = pooled_embeddings.cpu().numpy().astype(np.float32)
+                
+                # Transform embeddings according to FAISS strategy
+                query_embedding = self.faiss_index.transform(query_embedding)
+            else:
+                query_embedding = self.get_pooled_embeddings(query)
 
         # Search the dataset for the top k similar results
         results = self.faiss_index.search(
