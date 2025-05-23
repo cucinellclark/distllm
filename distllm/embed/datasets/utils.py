@@ -48,3 +48,11 @@ class DataCollator:
             truncation=True,
             return_tensors='pt',
         )
+
+
+class SimpleDataCollator:
+    """Simple data collator for batching sequences without requiring a tokenizer."""
+
+    def __call__(self, batch: list[str]) -> list[str]:
+        """Collate the batch of sequences by returning them as is."""
+        return batch
