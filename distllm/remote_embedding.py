@@ -49,10 +49,6 @@ class RemoteEmbeddingConfig(BaseConfig):
         ...,
         description='The embedding size of the embedding model',
     )
-    tokenizer_name: str | None = Field(
-        None,
-        description='Custom tokenizer name if different from the model',
-    )
 
 
 class RemoteEmbedding:
@@ -60,18 +56,11 @@ class RemoteEmbedding:
     
     def __init__(self, config: RemoteEmbeddingConfig) -> None:
         """Initialize the remote embedding client."""
-        self.server = config.server
-        self.port = config.port
-        self.api_key = config.api_key
-        self.model = config.model
-        self.embedding_size = config.embedding_size
-        
-        # Load the tokenizer locally - we only send encoded tokens to the server
-        tokenizer_name = config.tokenizer_name or config.model
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name, 
-            trust_remote_code=True,
-        )
+        self.server = config['server']
+        self.port = config['port']
+        self.api_key = config['api_key']
+        self.model = config['model']
+        self.embedding_size = config['embedding_size']
         
     def get_embeddings(self, batch_encoding: BatchEncoding) -> torch.Tensor:
         """Get embeddings by sending to remote server.
