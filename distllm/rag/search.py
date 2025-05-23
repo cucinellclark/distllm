@@ -30,6 +30,7 @@ from distllm.embed import PoolerConfigs
 from distllm.utils import BaseConfig
 from distllm.utils import batch_data
 from distllm.remote_embedding import RemoteEmbedding
+from distllm.remote_embedding import RemoteEmbeddingConfig
 
 
 def quantize_dataset(dataset_path: Path, precision: str) -> np.ndarray:
@@ -711,6 +712,50 @@ class RetrieverConfig(BaseConfig):
         )
 
         return retriever
+    
+class RemoteRetrieverConfig(BaseConfig):
+    """Configuration for the remote retriever."""
+
+    remote_embedding_config: RemoteEmbeddingConfig = Field(
+        ...,
+        description='Settings for the remote embedding',
+    )
+    faiss_config: FaissIndexV1Config | FaissIndexV2Config = Field(
+        ...,
+        description='Settings for the faiss index',
+    )
+    pooler_config: PoolerConfigs = Field(
+        ...,
+        description='Settings for the pooler',
+    )
+    batch_size: int = Field(
+        4,
+        description='Batch size for the embedder model',
+    )
+    def get_retriever(self) -> RemoteRetriever:
+        """Get the retriever."""
+
+        # Initialize the pooler
+        pooler = get_pooler(self.pooler_config.model_dump())
+
+        # TODO: Once FaissIndexV1 is removed, remove this if-else block
+        # Initialize the faiss index
+        faiss_kwargs = self.faiss_config.model_dump(exclude={'name'})
+        if self.faiss_config.name == 'faiss_index_v1':
+            faiss_index = FaissIndexV1(**faiss_kwargs)
+        else:
+            faiss_index = FaissIndexV2(**faiss_kwargs)  # type: ignore[assignment]
+
+        # Initialize the remote embedding
+        remote_embedding = RemoteEmbedding(self.remote_embedding_config.model_dump())
+
+        retriever = RemoteRetriever(
+            remote_embedding=remote_embedding,
+            faiss_index=faiss_index,
+            batch_size=self.batch_size,
+        )
+
+        return retriever
 
 
 class Retriever:
@@ -746,8 +791,7 @@ class Retriever:
         query: str | list[str] | None = None,
         query_embedding: np.ndarray | None = None,
         top_k: int = 1,
-        score_threshold: float = 0.0,
-        remote_retriever: bool = False
+        score_threshold: float = 0.0
     ) -> tuple[BatchedSearchResults, np.ndarray]:
         """Search for text similar to the queries.
 
@@ -762,8 +806,6 @@ class Retriever:
         score_threshold : float
             The score threshold to use for filtering out results,
             by default we keep everything 0.0.
-        remote_retriever : bool
-            Whether to use remote embedding for the query, by default False.
 
         Returns
         -------
@@ -790,41 +832,7 @@ class Retriever:
         # Embed the queries
         if query_embedding is None:
             assert query is not None
-            if remote_retriever:
-                # Convert query to list if it's a string
-                if isinstance(query, str):
-                    query_list = [query]
-                else:
-                    query_list = query
-                
-                import pdb; pdb.set_trace()
-                # Get configuration from encoder_config
-                config = self.encoder.config
-                
-                # Create a RemoteEmbedding instance
-                remote_client = RemoteEmbedding(config)
-                
-                # Tokenize the query
-                batch_encoding = remote_client.tokenizer(
-                    query_list,
-                    padding=True,
-                    truncation=True,
-                    return_tensors='pt',
-                )
-                
-                # Get embeddings from remote service
-                embeddings = remote_client.get_embeddings(batch_encoding)
-                
-                # Pool the embeddings using the pooler
-                pooled_embeddings = self.pooler.pool(embeddings, batch_encoding.attention_mask)
-                
-                # Convert to numpy for FAISS
-                query_embedding = pooled_embeddings.cpu().numpy().astype(np.float32)
-                
-                # Transform embeddings according to FAISS strategy
-                query_embedding = self.faiss_index.transform(query_embedding)
-            else:
-                query_embedding = self.get_pooled_embeddings(query)
+            query_embedding = self.get_pooled_embeddings(query)
 
         # Search the dataset for the top k similar results
         results = self.faiss_index.search(
@@ -964,3 +972,199 @@ class Retriever:
             List of texts for the given indices.
         """
         return self.get(indices, 'text')
+
+class RemoteRetriever:
+    """Remote retriever for semantic similarity search."""
+
+    def __init__(
+        self,
+        remote_embedding: RemoteEmbedding,
+        faiss_index: FaissIndexV1 | FaissIndexV2,
+        batch_size: int = 4,
+    ) -> None:
+        """Initialize the RemoteRetriever.
+
+        Parameters
+        ----------
+        remote_embedding : RemoteEmbedding
+            The remote embedding instance to use for embedding queries.
+        faiss_index : FaissIndex | FaissIndexV2
+            The FAISS index instance to use for searching.
+        batch_size : int
+            The batch size to use for encoding queries, by default 4.
+        """
+        self.remote_embedding = remote_embedding
+        self.faiss_index = faiss_index
+        self.batch_size = batch_size
+    
+    def search(
+        self,
+        query: str | list[str] | None = None,
+        query_embedding: np.ndarray | None = None,
+        top_k: int = 1,
+        score_threshold: float = 0.0,
+    ) -> tuple[BatchedSearchResults, np.ndarray]:
+        """Search for text similar to the queries using remote embedding.
+
+        Parameters
+        ----------
+        query : str | list[str] | None
+            The single query or list of queries. Must be provided if
+            query_embedding is None.
+        query_embedding : np.ndarray | None
+            The query embedding, by default None.
+        top_k : int
+            The number of top results to return, by default 1.
+        score_threshold : float
+            The score threshold to use for filtering out results,
+            by default we keep everything 0.0.
+
+        Returns
+        -------
+        BatchedSearchResults
+            A namedtuple with list[list[float]] (.total_scores) of scores for
+            each of the top_k returned items and a list[list[int]]]
+            (.total_indices) of indices for each of the top_k returned items
+            for each query sequence.
+        np.ndarray
+            The embeddings of the queries
+            (shape: [num_queries, embedding_size])
+
+        Raises
+        ------
+        ValueError
+            If both query and query_embedding are None.
+        """
+        # Check whether arguments are valid
+        if query is None and query_embedding is None:
+            raise ValueError(
+                'Provide at least one of query or query_embedding.',
+            )
+
+        # Embed the queries
+        if query_embedding is None:
+            assert query is not None
+            query_embedding = self.get_pooled_embeddings(query)
+
+        # Search the dataset for the top k similar results
+        results = self.faiss_index.search(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            score_threshold=score_threshold,
+        )
+
+        return results, query_embedding
+    
+    def get_pooled_embeddings(self, query: str | list[str]) -> np.ndarray:
+        """Get the pooled embeddings for the queries using remote embedding.
+
+        Parameters
+        ----------
+        query : str | list[str]
+            The single query or list of queries.
+
+        Returns
+        -------
+        np.ndarray
+            The embeddings of the queries
+            (shape: [num_queries, embedding_size])
+        """
+        # Convert the query to a list if it is a single string
+        if isinstance(query, str):
+            query = [query]
+
+        # Sort the data by length
+        indices = sorted(range(len(query)), key=lambda i: len(query[i]))
+        sorted_query = [query[i] for i in indices]
+
+        # Batch the queries
+        query_batches = batch_data(sorted_query, chunk_size=self.batch_size)
+
+        # Get the pooled embeddings for the queries
+        pool_embeds = []
+        for batch in query_batches:
+            pool_embeds.append(self._get_pooled_embeddings(batch))
+
+        # Combine the pooled embeddings
+        pool_embeds = np.concatenate(pool_embeds, axis=0)
+
+        # Reorder the embeddings to match the original order
+        pool_embeds = pool_embeds[np.argsort(indices)]
+
+        return pool_embeds
+
+    @torch.no_grad()
+    def _get_pooled_embeddings(self, query: str | list[str]) -> np.ndarray:
+        """Get the embeddings for the queries using remote embedding.
+
+        Parameters
+        ----------
+        query : str | list[str]
+            The single query or list of queries.
+
+        Returns
+        -------
+        np.ndarray
+            The embeddings of the queries
+            (shape: [num_queries, embedding_size])
+        """
+
+        # Get embeddings from remote service
+        # TODO: assuming already pooled by the remote service
+        embeddings = self.remote_embedding.get_embeddings(query)
+        
+        # Convert to numpy for FAISS
+        embeddings = embeddings.cpu().numpy().astype(np.float32)
+
+        # Transform the embeddings according to the faiss strategy
+        embeddings = self.faiss_index.transform(embeddings)
+
+        return embeddings
+
+    def get(self, indices: list[int], key: str) -> list[Any]:
+        """Get the values of a key from the dataset for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices to get.
+        key : str
+            The key to get from the dataset.
+
+        Returns
+        -------
+        list[Any]
+            The values for the given indices.
+        """
+        return self.faiss_index.get(indices, key)
+
+    def get_embeddings(self, indices: list[int]) -> np.ndarray:
+        """Get the embeddings for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices returned from the search.
+
+        Returns
+        -------
+        np.ndarray
+            Array of embeddings (shape: [num_indices, embed_size])
+        """
+        return np.array(self.get(indices, 'embeddings'))
+
+    def get_texts(self, indices: list[int]) -> list[str]:
+        """Get the texts for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices returned from the search.
+
+        Returns
+        -------
+        list[str]
+            List of texts for the given indices.
+        """
+        return self.get(indices, 'text')
+

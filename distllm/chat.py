@@ -15,6 +15,8 @@ from distllm.generate.prompts import IdentityPromptTemplate
 from distllm.generate.prompts import IdentityPromptTemplateConfig
 from distllm.rag.search import Retriever
 from distllm.rag.search import RetrieverConfig
+from distllm.rag.search import RemoteRetriever
+from distllm.rag.search import RemoteRetrieverConfig
 from distllm.utils import BaseConfig
 
 
@@ -176,7 +178,7 @@ class RagGenerator:
     def __init__(
         self,
         generator: VLLMGenerator,
-        retriever: Retriever | None = None,
+        retriever: Retriever | RemoteRetriever | None = None,
         verbose: bool = False,
     ) -> None:
         self.generator = generator
@@ -277,6 +279,39 @@ class RetrievalAugmentedGenerationConfig(BaseConfig):
             verbose=self.verbose,
         )
         return rag_model
+    
+class RemoteRetrievalAugmentedGenerationConfig(BaseConfig):
+    """Configuration for the retrieval-augmented generation model."""
+
+    generator_config: VLLMGeneratorConfig = Field(
+        ...,
+        description='Settings for the VLLM generator',
+    )
+    retriever_config: RemoteRetrieverConfig | None = Field(
+        None,
+        description='Settings for the retriever',
+    )
+    verbose: bool = Field(
+        default=False,
+        description='Whether to print retrieved contexts in chat.',
+    )
+
+    def get_rag_model(self) -> RagGenerator:
+        """Instantiate the RAG model."""
+        # Initialize the generator
+        generator = VLLMGenerator(self.generator_config)
+        # Initialize the retriever
+        retriever = None
+        if self.retriever_config is not None:
+            retriever = self.retriever_config.get_retriever()
+
+        # Initialize the RAG model
+        rag_model = RagGenerator(
+            generator=generator,
+            retriever=retriever,
+            verbose=self.verbose,
+        )
+        return rag_model
 
 
 class ChatAppConfig(BaseConfig):
@@ -291,11 +326,23 @@ class ChatAppConfig(BaseConfig):
         description='Directory to save the output files.',
     )
 
+class RemoteChatAppConfig(BaseConfig):
+    """Configuration for the evaluation suite."""
+
+    rag_configs: RemoteRetrievalAugmentedGenerationConfig = Field(
+        ...,
+        description='Settings for this RAG application.',
+    )
+    save_conversation_path: Path = Field(
+        ...,
+        description='Directory to save the output files.',
+    )
+
 
 # -----------------------------------------------------------------------------
 # Main Chat Function
 # -----------------------------------------------------------------------------
-def chat_with_model(config: ChatAppConfig) -> None:
+def chat_with_model(config: ChatAppConfig | RemoteChatAppConfig) -> None:
     """
     Driver function for the chat application.
 
@@ -369,10 +416,14 @@ def chat_with_model(config: ChatAppConfig) -> None:
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--config', type=Path, required=True)
+    parser.add_argument('--remote', action='store_true', default=False)
     args = parser.parse_args()
 
     # Load the configuration
-    config = ChatAppConfig.from_yaml(args.config)
+    if args.remote:
+        config = RemoteChatAppConfig.from_yaml(args.config)
+    else:
+        config = ChatAppConfig.from_yaml(args.config)
 
     # Start the interactive chat
     chat_with_model(config)
