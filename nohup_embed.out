@@ -5,10 +5,16 @@ Traceback (most recent call last):
   File "<frozen runpy>", line 88, in _run_code
   File "/home/cucinell/RAG/distllm/distllm/remote_embedding.py", line 228, in <module>
     process_embeddings(
-  File "/home/cucinell/RAG/distllm/distllm/remote_embedding.py", line 151, in process_embeddings
-    dataloader = dataset.get_dataloader(input_path)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: JsonlChunkDataset.get_dataloader() missing 1 required positional argument: 'encoder'
+  File "/home/cucinell/RAG/distllm/distllm/remote_embedding.py", line 155, in process_embeddings
+    result = embedder.embed(dataloader, pooler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cucinell/RAG/distllm/distllm/embed/embedders/encoder_free_semantic_chunk.py", line 174, in embed
+    dataset = compute_encoder_free_semantic_chunks(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cucinell/RAG/distllm/distllm/embed/embedders/encoder_free_semantic_chunk.py", line 80, in compute_encoder_free_semantic_chunks
+    raise ValueError(
+ValueError: Pre-computed embeddings with key 'embeddings' are required for encoder-free semantic chunking.
 Found 1 input files to embed
 Processing /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl
-[timer] [loaded-dataset /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl] in [0.00] seconds.  start: [1747946774.60], end: [1747946774.60]
+[timer] [loaded-dataset /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl] in [0.06] seconds.  start: [1748011947.48], end: [1748011947.54]
+[timer] [computed-embeddings /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl] in [0.00] seconds.  start: [1748011947.54], end: [1748011947.54]

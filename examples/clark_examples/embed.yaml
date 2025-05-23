@@ -26,7 +26,7 @@ pooler_config:
 
 # Settings for the embedder.
 embedder_config:
-  name: semantic_chunk
+  name: encoder_free_semantic_chunk 
   chunk_batch_size: 2
   normalize_embeddings: true
 
