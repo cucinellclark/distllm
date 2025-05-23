@@ -1115,6 +1115,10 @@ class RemoteRetriever:
         
         # Convert to numpy for FAISS
         embeddings = embeddings.cpu().numpy().astype(np.float32)
+        
+        # Reshape 1D array to 2D if needed (batch_size=1, embedding_dim)
+        if len(embeddings.shape) == 1:
+            embeddings = embeddings.reshape(1, -1)
 
         # Transform the embeddings according to the faiss strategy
         embeddings = self.faiss_index.transform(embeddings)
