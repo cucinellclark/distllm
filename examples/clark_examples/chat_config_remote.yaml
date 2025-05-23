@@ -1,0 +1,38 @@
+# This config allows distllm.chat to spawn an interactive chat session with remote embedding.
+rag_configs:
+  # Generator configuration - adjust server/model/port as needed
+  generator_config:
+    server: rbdgx2  # Adjust to your available server
+    model: meta-llama/Llama-3.3-70B-Instruct  # Adjust to your preferred model
+    port: 9999
+    api_key: CELS
+    temperature: 0.0
+    max_tokens: 16384
+
+  # Retriever configuration with remote embedding
+  retriever_config:
+    faiss_config:
+      name: faiss_index_v2
+      dataset_dir: /nfs/lambda_stor_01/homes/cucinell/RAG/test_brc_docs/embeddings/85927be5-1130-4ae0-b627-4f6e311882c1  # Replace with actual dataset path
+      faiss_index_path: /nfs/lambda_stor_01/homes/cucinell/RAG/chat_logs/brc_docs_test  # Replace with actual index path
+      precision: float32
+      search_algorithm: exact
+      rescore_multiplier: 2
+      num_quantization_workers: 1
+
+    # Remote embedding configuration
+    encoder_config:
+      name: remote_embedding
+      server: 140.221.79.23  # lambda13 or your embedding server
+      port: 9998
+      api_key: AskClark  # Your API key for the embedding service
+      model: Salesforce/SFR-Embedding-Mistral  # The model running on the remote server
+      embedding_size: 4096  # Embedding size of the model
+
+    pooler_config:
+      name: last_token  # You can use mean, last_token, or other options
+
+  verbose: false
+
+# Path to save conversation logs
+save_conversation_path: /nfs/lambda_stor_01/homes/cucinell/RAG/chat_logs 
