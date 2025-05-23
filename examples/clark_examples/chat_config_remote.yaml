@@ -35,4 +35,4 @@ rag_configs:
   verbose: false
 
 # Path to save conversation logs
-save_conversation_path: /nfs/lambda_stor_01/homes/cucinell/RAG/chat_logs 
+save_conversation_path: /nfs/lambda_stor_01/homes/cucinell/RAG/chat_logs/test_brc_docs 
