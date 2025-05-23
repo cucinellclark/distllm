@@ -50,7 +50,7 @@ def embed(  # noqa: PLR0913
         '--dataset_name',
         '-dn',
         help='The name of the dataset to use for generating the embeddings '
-        '[jsonl, jsonl_chunk, fasta, sequence_per_line].',
+        '[jsonl, jsonl_chunk, simple_chunk, fasta, sequence_per_line].',
     ),
     batch_size: int = typer.Option(
         1,
@@ -128,8 +128,8 @@ def embed(  # noqa: PLR0913
         'batch_size': batch_size,
     }
 
-    # If the dataset is jsonl_chunk, set the buffer size
-    if dataset_name == 'jsonl_chunk':
+    # If the dataset is jsonl_chunk or simple_chunk, set the buffer size
+    if dataset_name in ['jsonl_chunk', 'simple_chunk']:
         dataset_kwargs['buffer_size'] = buffer_size
 
     # The encoder kwargs
