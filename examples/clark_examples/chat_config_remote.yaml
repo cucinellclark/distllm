@@ -21,20 +21,13 @@ rag_configs:
       num_quantization_workers: 1
 
     # Remote embedding configuration
-    # Settings for the embedder.
-    embedder_config:
-      name: encoder_free_semantic_chunk
-      # vLLM parameters (copied from encoder_config)
+    remote_embedding_config:
+      name: remote_embedding
       server: 140.221.79.23 # lambda13
-      port: 9998         
-      api_key: AskClark     
+      port: 9998
+      api_key: AskClark
       model: Salesforce/SFR-Embedding-Mistral
-      # Semantic chunking parameters
-      chunk_batch_size: 2
-      normalize_embeddings: true
-      breakpoint_percentile_threshold: 75
-      min_chunk_length: 100
-      embeddings_key: embeddings  # This key is used when falling back to pre-computed embeddings
+      embedding_size: 4096  # Set to the appropriate embedding size for your model
 
     pooler_config:
       name: last_token  # You can use mean, last_token, or other options
