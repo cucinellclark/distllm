@@ -7,7 +7,7 @@ glob_patterns: ['*.jsonl']
 
 # Settings for reading the input files.
 dataset_config:
-  name: jsonl_chunk
+  name: simple_chunk
   buffer_size: 4
   batch_size: 2
 
