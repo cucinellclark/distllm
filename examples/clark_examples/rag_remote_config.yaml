@@ -1,0 +1,34 @@
+rag_configs:
+  # Remote vLLM generator configuration
+  generator_config:
+    server: rbdgx2
+    port: 9999         
+    api_key: CELS     
+    model: meta-llama/Llama-3.3-70B-Instruct 
+
+  # Retriever configuration using remote encoder
+  retriever_config:
+    faiss_config:
+      name: faiss_index_v2
+      dataset_dir: 
+      faiss_index_path: 
+      dataset_chunk_paths: null
+      precision: float32
+      search_algorithm: exact
+      rescore_multiplier: 2
+      num_quantization_workers: 1
+
+    encoder_config:
+      name: remote_embedding
+      server: 140.221.79.23 # lambda13
+      port: 9993         
+      api_key: AskClark     
+      model: Salesforce/SFR-Embedding-Mistral  # The model name running on the remote server
+      embedding_size: 4096         # The embedding size of the model
+    
+    pooler_config:
+      name: mean
+
+  verbose: false
+
+save_conversation_path: /home/cucinell/RAG/test_output

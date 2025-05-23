@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from typing import Union
 
+from distllm.embed.encoders.adapter import RemoteEmbeddingAdapter
+from distllm.embed.encoders.adapter import RemoteEmbeddingAdapterConfig
 from distllm.embed.encoders.auto import AutoEncoder
 from distllm.embed.encoders.auto import AutoEncoderConfig
 from distllm.embed.encoders.base import Encoder
@@ -19,12 +21,14 @@ EncoderConfigs = Union[
     Esm2EncoderConfig,
     EsmCambrianEncoderConfig,
     AutoEncoderConfig,
+    RemoteEmbeddingAdapterConfig,
 ]
 
 STRATEGIES: dict[str, tuple[type[BaseConfig], type[Encoder]]] = {
     'esm2': (Esm2EncoderConfig, Esm2Encoder),
     'esmc': (EsmCambrianEncoderConfig, EsmCambrianEncoder),
     'auto': (AutoEncoderConfig, AutoEncoder),
+    'remote_embedding': (RemoteEmbeddingAdapterConfig, RemoteEmbeddingAdapter),
 }
 
 
@@ -56,6 +60,7 @@ def get_encoder(
     - esm2
     - esmc
     - auto
+    - remote_embedding
 
     Parameters
     ----------

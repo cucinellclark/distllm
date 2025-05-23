@@ -1,0 +1,14 @@
+nohup: ignoring input
+<frozen runpy>:128: RuntimeWarning: 'distllm.remote_embedding' found in sys.modules after import of package 'distllm', but prior to execution of 'distllm.remote_embedding'; this may result in unpredictable behaviour
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/cucinell/RAG/distllm/distllm/remote_embedding.py", line 228, in <module>
+    process_embeddings(
+  File "/home/cucinell/RAG/distllm/distllm/remote_embedding.py", line 151, in process_embeddings
+    dataloader = dataset.get_dataloader(input_path)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: JsonlChunkDataset.get_dataloader() missing 1 required positional argument: 'encoder'
+Found 1 input files to embed
+Processing /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl
+[timer] [loaded-dataset /home/cucinell/RAG/bvbrc_docs/bvbrc_docs.jsonl] in [0.00] seconds.  start: [1747946774.60], end: [1747946774.60]

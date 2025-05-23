@@ -1,4 +1,4 @@
-"""Embed module for distllm."""
+"""Embedding module."""
 
 from __future__ import annotations
 
@@ -18,3 +18,16 @@ from distllm.embed.poolers import PoolerConfigs
 from distllm.embed.writers import get_writer
 from distllm.embed.writers import Writer
 from distllm.embed.writers import WriterConfigs
+
+__all__ = [
+    'DatasetConfigs',
+    'EmbedderConfigs',
+    'EncoderConfigs',
+    'PoolerConfigs',
+    'WriterConfigs',
+    'get_dataset',
+    'get_embedder',
+    'get_encoder',
+    'get_pooler',
+    'get_writer',
+]
