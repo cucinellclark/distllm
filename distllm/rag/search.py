@@ -282,7 +282,7 @@ class FaissIndexV2:
     def search(
         self,
         query_embedding: np.ndarray,
-        top_k: int = 1,
+        top_k: int = 5,
         score_threshold: float = 0.0,
     ) -> BatchedSearchResults:
         """Search for the top k similar texts in the dataset.
@@ -292,7 +292,7 @@ class FaissIndexV2:
         query_embedding : np.ndarray
             The query embeddings.
         top_k : int
-            The number of top results to return, by default 1.
+            The number of top results to return, by default 5.
         score_threshold : float
             The score threshold to use for filtering out results,
             by default we keep everything 0.0.
@@ -1001,7 +1001,7 @@ class RemoteRetriever:
         self,
         query: str | list[str] | None = None,
         query_embedding: np.ndarray | None = None,
-        top_k: int = 1,
+        top_k: int = 5,
         score_threshold: float = 0.0,
     ) -> tuple[BatchedSearchResults, np.ndarray]:
         """Search for text similar to the queries using remote embedding.
@@ -1014,7 +1014,7 @@ class RemoteRetriever:
         query_embedding : np.ndarray | None
             The query embedding, by default None.
         top_k : int
-            The number of top results to return, by default 1.
+            The number of top results to return, by default 5.
         score_threshold : float
             The score threshold to use for filtering out results,
             by default we keep everything 0.0.

@@ -271,6 +271,8 @@ class RetrievalAugmentedGenerationConfig(BaseConfig):
         retriever = None
         if self.retriever_config is not None:
             retriever = self.retriever_config.get_retriever()
+            # Print the number of documents in the FAISS database
+            print(f"FAISS database loaded with {len(retriever.faiss_index.dataset)} documents")
 
         # Initialize the RAG model
         rag_model = RagGenerator(
@@ -304,6 +306,8 @@ class RemoteRetrievalAugmentedGenerationConfig(BaseConfig):
         retriever = None
         if self.retriever_config is not None:
             retriever = self.retriever_config.get_retriever()
+            # Print the number of documents in the FAISS database
+            print(f"FAISS database loaded with {len(retriever.faiss_index.dataset)} documents")
 
         # Initialize the RAG model
         rag_model = RagGenerator(
