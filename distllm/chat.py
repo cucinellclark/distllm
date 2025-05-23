@@ -230,8 +230,12 @@ class RagGenerator:
         prompts = prompt_template.preprocess(texts, contexts, scores)
 
         # If the verbose is true in config, print contexts.
-        if self.verbose:
-            print(contexts[0])
+        if self.verbose and contexts and len(contexts) > 0:
+            print("\n=== Retrieved Documents ===")
+            for i, (doc, score) in enumerate(zip(contexts[0], scores[0])):
+                print(f"Document {i+1} (score: {score:.4f}):")
+                print(f"{doc}\n")
+            print("===========================\n")
 
         # We only expect one output per query for now
         # (If multiple texts were passed, we would loop.)

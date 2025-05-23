@@ -32,7 +32,7 @@ rag_configs:
     pooler_config:
       name: last_token  # You can use mean, last_token, or other options
 
-  verbose: false
+  verbose: true
 
 # Path to save conversation logs
 save_conversation_path: /nfs/lambda_stor_01/homes/cucinell/RAG/chat_logs/test_brc_docs 
