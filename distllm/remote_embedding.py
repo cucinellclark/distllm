@@ -98,7 +98,7 @@ class RemoteEmbedding:
         
         if response.status_code == 200:
             result = response.json()
-            embeddings = torch.tensor(result['embeddings'])
+            embeddings = torch.tensor(result['data'][0]['embedding'])
             return embeddings
         else:
             raise ValueError(f"Error from embedding service: {response.status_code}, {response.text}")
