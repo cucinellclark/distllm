@@ -777,6 +777,7 @@ class Retriever:
         ValueError
             If both query and query_embedding are None.
         """
+
         # Check whether arguments are valid
         if query is None and query_embedding is None:
             raise ValueError(
@@ -789,6 +790,7 @@ class Retriever:
             query_embedding = self.get_pooled_embeddings(query)
 
         # Search the dataset for the top k similar results
+        # TODO: Consider how to handle faiss index, this one works on local gpu
         results = self.faiss_index.search(
             query_embedding=query_embedding,
             top_k=top_k,
@@ -815,64 +817,7 @@ class Retriever:
         if isinstance(query, str):
             query = [query]
 
-        # Sort the data by length
-        indices = sorted(range(len(query)), key=lambda i: len(query[i]))
-        sorted_query = [query[i] for i in indices]
-
-        # Batch the queries
-        query_batches = batch_data(sorted_query, chunk_size=self.batch_size)
-
-        # Get the pooled embeddings for the queries
-        pool_embeds = []
-        for batch in query_batches:
-            pool_embeds.append(self._get_pooled_embeddings(batch))
-
-        # Combine the pooled embeddings
-        pool_embeds = np.concatenate(pool_embeds, axis=0)
-
-        # Reorder the embeddings to match the original order
-        pool_embeds = pool_embeds[np.argsort(indices)]
-
-        return pool_embeds
-
-    @torch.no_grad()
-    def _get_pooled_embeddings(self, query: str | list[str]) -> np.ndarray:
-        """Get the embeddings for the queries.
-
-        Parameters
-        ----------
-        query : str | list[str]
-            The single query or list of queries.
-
-        Returns
-        -------
-        np.ndarray
-            The embeddings of the queries
-            (shape: [num_queries, embedding_size])
-        """
-        # Convert the query to a list if it is a single string
-        if isinstance(query, str):
-            query = [query]
-
-        # Tokenize the query sequences
-        batch_encoding = self.encoder.tokenizer(
-            query,
-            padding=True,
-            truncation=True,
-            return_tensors='pt',
-        )
-
-        # Move the batch encoding to the device
-        inputs = batch_encoding.to(self.encoder.device)
-
-        # Embed the queries
-        query_embeddings = self.encoder.encode(inputs)
-
-        # Compute average embeddings for the queries
-        pool_embeds = self.pooler.pool(query_embeddings, inputs.attention_mask)
-
-        # Convert the query embeddings to numpy float32 for FAISS
-        pool_embeds = pool_embeds.cpu().numpy().astype(np.float32)
+        # TODO: implement remote embedding
 
         # TODO: Consider moving this into faiss index internals
         # Transform the embeddings according to the faiss strategy
