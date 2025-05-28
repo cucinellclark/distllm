@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import time
 import warnings
+
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,9 @@ from typing import Literal
 
 import faiss
 import numpy as np
+import requests
 import torch
+
 from datasets import Dataset
 from datasets.search import BatchedSearchResults
 from pydantic import Field
@@ -710,6 +713,153 @@ class RetrieverConfig(BaseConfig):
         )
 
         return retriever
+
+class RemoteRetrieverConfig(BaseConfig):
+    """Configuration for the retriever."""
+
+    faiss_config: FaissIndexV2Config = Field(
+        ...,
+        description='Settings for the faiss index',
+    )
+
+    def get_retriever(self) -> Retriever:
+        """Get the retriever."""
+
+        faiss_index = FaissIndexV2(**self.faiss_config.model_dump(exclude={'name'}))  # type: ignore[assignment]
+
+        retriever = RemoteRetriever(
+            faiss_index=faiss_index
+        )
+
+        return retriever
+
+class RemoteRetriever:
+    """Remote retriever for semantic similarity search."""
+
+    def __init__(self, faiss_index: FaissIndexV2) -> None:
+        self.faiss_index = faiss_index
+
+    def search(
+        self,
+        query: str | list[str] | None = None,
+        query_embedding: np.ndarray | None = None,
+        top_k: int = 1,
+        score_threshold: float = 0.0,
+    ) -> tuple[BatchedSearchResults, np.ndarray]:
+            # Check whether arguments are valid
+        if query is None and query_embedding is None:
+            raise ValueError(
+                'Provide at least one of query or query_embedding.',   
+            )
+
+        # Embed the queries
+        if query_embedding is None:
+            assert query is not None
+            query_embedding = self.get_pooled_embeddings(query)
+
+        # Search the dataset for the top k similar results
+        results = self.faiss_index.search(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            score_threshold=score_threshold,
+        )
+
+        return results, query_embedding
+
+    def get_pooled_embeddings(self, query: str | list[str]) -> np.ndarray:
+        """Get the pooled embeddings for the queries.
+
+        Parameters
+        ----------
+        query : str | list[str]
+            The single query or list of queries.
+
+        Returns
+        -------
+        np.ndarray
+            The embeddings of the queries
+            (shape: [num_queries, embedding_size])
+        """
+        # Convert the query to a list if it is a single string
+        if isinstance(query, str):
+            query = [query]
+
+        url = "http://lambda13.cels.anl.gov:9998/v1/embeddings"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer AskClark"
+        }
+        payload = {
+            "model": "Salesforce/SFR-Embedding-Mistral",
+            "input": query
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            raise ValueError(f"Embedding API request failed with status code {response.status_code}: {response.text}")
+        
+        # Extract embeddings from response
+        embeddings_data = response.json()
+        embeddings = []
+        
+        for data in embeddings_data.get("data", []):
+            embeddings.append(data.get("embedding", []))
+        
+        # Convert to numpy array
+        pool_embeds = np.array(embeddings, dtype=np.float32)
+
+        # Transform the embeddings according to the faiss strategy
+        pool_embeds = self.faiss_index.transform(pool_embeds)
+
+        return pool_embeds
+
+    def get(self, indices: list[int], key: str) -> list[Any]:
+        """Get the values of a key from the dataset for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices to get.
+        key : str
+            The key to get from the dataset.
+
+        Returns
+        -------
+        list[Any]
+            The values for the given indices.
+        """
+        return self.faiss_index.get(indices, key)
+
+    def get_embeddings(self, indices: list[int]) -> np.ndarray:
+        """Get the embeddings for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices returned from the search.
+
+        Returns
+        -------
+        np.ndarray
+            Array of embeddings (shape: [num_indices, embed_size])
+        """
+        return np.array(self.get(indices, 'embeddings'))
+
+    def get_texts(self, indices: list[int]) -> list[str]:
+        """Get the texts for the given indices.
+
+        Parameters
+        ----------
+        indices : list[int]
+            The list of indices returned from the search.
+
+        Returns
+        -------
+        list[str]
+            List of texts for the given indices.
+        """
+        return self.get(indices, 'text')
 
 
 class Retriever:

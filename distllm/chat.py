@@ -15,6 +15,8 @@ from distllm.generate.prompts import IdentityPromptTemplate
 from distllm.generate.prompts import IdentityPromptTemplateConfig
 from distllm.rag.search import Retriever
 from distllm.rag.search import RetrieverConfig
+from distllm.rag.search import RemoteRetriever
+from distllm.rag.search import RemoteRetrieverConfig
 from distllm.utils import BaseConfig
 
 
@@ -66,8 +68,10 @@ class ConversationPromptTemplate(PromptTemplate):
 
         # Build the conversation string
         conversation_str = ''
-        for speaker, text in self.conversation_history:
-            conversation_str += f'{speaker}: {text}\n'
+        if len(self.conversation_history) > 1:
+            for speaker, text in self.conversation_history:
+                conversation_str += f'{speaker}: {text}\n'
+
         # Add the new user question
         conversation_str += f'User: {user_input}\nAssistant:'
 
@@ -176,7 +180,7 @@ class RagGenerator:
     def __init__(
         self,
         generator: VLLMGenerator,
-        retriever: Retriever | None = None,
+        retriever: RemoteRetriever | None = None,
         verbose: bool = False,
     ) -> None:
         self.generator = generator
@@ -238,6 +242,7 @@ class RagGenerator:
             temperature=temperature,
             max_tokens=max_tokens,
         )
+
         # Return as list (matching the function signature)
         return [result]
 
@@ -252,7 +257,7 @@ class RetrievalAugmentedGenerationConfig(BaseConfig):
         ...,
         description='Settings for the VLLM generator',
     )
-    retriever_config: RetrieverConfig | None = Field(
+    retriever_config: RemoteRetrieverConfig | None = Field(
         None,
         description='Settings for the retriever',
     )
